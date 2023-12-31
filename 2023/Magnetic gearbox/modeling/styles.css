@@ -1,0 +1,46 @@
+/* ---Variables--- */
+:root {
+  /* --magnet-amount: 3;
+  --magnet-g1-color: hsl(0, 100%, 50%);
+  --magnet-g1-color: hsl(240, 100%, 50%); */
+  /* --magnet-r: 0.05;
+  --gear-r: 0.15;
+
+  --distance-between: 0.29; */
+  /* --scale: 0.25; */
+  --magnet-r: 0.007;
+  --gear-r: 0.03;
+
+  --distance-between: 0.07;
+  /* --scale: 1; */
+}
+/* --------------- */
+* {
+  margin: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+svg {
+  width: 90vw;
+  height: 90vh;
+  margin: 5vh 5vw;
+}
+
+svg .teeth line {
+  stroke: black;
+  stroke-width: 0.001;
+}
+
+svg #gear-1 .magnet {
+  fill: red;
+}
+
+svg #gear-2 .magnet {
+  fill: blue;
+}

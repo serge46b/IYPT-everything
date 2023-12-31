@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gearbox modeling</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./script.js" defer></script>
+  </head>
+  <body>
+    <!-- <template id="magnet-template">
+      <div class="magnet"></div>
+    </template>
+    <div id="gear-1" class="gear"></div>
+    <div id="gear-2" class="gear"></div> -->
+    <!-- NEW CODE -->
+    <template id="gear-template">
+      <svg>
+        <g class="gear"></g>
+      </svg>
+    </template>
+    <template id="magnet-template">
+      <svg>
+        <g class="teeth">
+          <line class="branch"></line>
+          <circle class="magnet"></circle>
+        </g>
+      </svg>
+    </template>
+    <svg xmlns="http://www.w3.org/2000/svg" id="canvas"></svg>
+  </body>
+</html>
