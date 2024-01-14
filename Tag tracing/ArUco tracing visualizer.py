@@ -1,30 +1,49 @@
+import os
 import cv2
 import json
 import numpy as np
 from cv2 import aruco
 
 
-ROOT = "./2023/Walker/"
-CALIB_FILE_PATH = ROOT + \
-    "../../Calibration/calibration files/Nikon (stock lens).json"
+# CONFIG_FILE_PATH = "./2023/Walker/ArUco tracing config.json"
+# CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/Nk single wheel.json"
+CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/s46b ArUco general tracing cfg.json"
+
+
+if not CONFIG_FILE_PATH:
+    CONFIG_FILE_PATH = input("Pass config file path:")
+if not os.path.exists(CONFIG_FILE_PATH):
+    print("cannot load config file. Exiting...")
+    os._exit(0)
+
+with open(CONFIG_FILE_PATH) as cfg_f:
+    loaded_cfg = json.load(cfg_f)
+
+
+ROOT = loaded_cfg["root_path"]
+CALIB_FILE_PATH = loaded_cfg["calibration_file_path"]
 # CALIB_FILE_PATH = ROOT + "../../Calibration/calibration.json"
-VIDEO_SOURCE = ROOT + "aruco tag exp/videos/AL exp 2.MOV"
-TRACED_DATA_IN_PATH = ROOT + "aruco tag exp/results/" + \
+VIDEO_SOURCE = ROOT + loaded_cfg["video_in_rpath"]
+TRACED_DATA_IN_PATH = ROOT + loaded_cfg["tracing_file_dir_rpath"] + \
     (str(VIDEO_SOURCE) if VIDEO_SOURCE is int else VIDEO_SOURCE[VIDEO_SOURCE.rfind(
         '/'):VIDEO_SOURCE.rfind('.')]) + ".csv"
 # OUT_SV_PATH = ROOT + "aruco tag exp/results/" + VIDEO_SOURCE + ".txt"
 
 # ARUCO_DICTIONARY = aruco.DICT_4X4_1000
 # MARKER_SIZE = 0.048  # units - meters
+GROUND_MARKER_ID = loaded_cfg["root_marker_id"]
 
 DISPLAY_IMG_HEIGHT = 700  # units - pixels
-MARKER_AXIS_DISPLAY_LENGTH = 0.05  # units - meters
+MARKER_AXIS_DISPLAY_LENGTH = 0.025  # units - meters
 # DEBUG = False
+
 
 # CAMERA_RES_WIDTH = 1280
 # CAMERA_RES_HEIGHT = 720
-CAMERA_RES_WIDTH = 1920
-CAMERA_RES_HEIGHT = 1080
+# CAMERA_RES_WIDTH = 1920
+# CAMERA_RES_HEIGHT = 1080
+# CAMERA_RES_WIDTH = 2400
+# CAMERA_RES_HEIGHT = 1028
 
 
 def resize_with_aspect_ratio(image, width=None, height=None, inter=cv2.INTER_AREA):
@@ -43,9 +62,12 @@ def resize_with_aspect_ratio(image, width=None, height=None, inter=cv2.INTER_ARE
 
 # aruco_dict = aruco.getPredefinedDictionary(ARUCO_DICTIONARY)
 # arucoParams = aruco.DetectorParameters()
-camera = cv2.VideoCapture(VIDEO_SOURCE, apiPreference=cv2.CAP_ANY, params=[
-    cv2.CAP_PROP_FRAME_WIDTH, CAMERA_RES_WIDTH,
-    cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_RES_HEIGHT])
+camera = cv2.VideoCapture(VIDEO_SOURCE)
+# camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_RES_WIDTH)
+# camera.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_RES_HEIGHT)
+# camera = cv2.VideoCapture(VIDEO_SOURCE, apiPreference=cv2.CAP_ANY, params=[
+#     cv2.CAP_PROP_FRAME_WIDTH, CAMERA_RES_WIDTH,
+#     cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_RES_HEIGHT])
 # with open(CALIB_FILE_PATH) as f:
 #     loadeddict = json.load(f)
 with open(CALIB_FILE_PATH) as f:
@@ -73,9 +95,7 @@ for line in trvec_file:
 pause_flag = False
 while True:
     ret, img = camera.read()
-    if pause_flag:
-        camera.set(cv2.CAP_PROP_POS_FRAMES, int(
-            camera.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
+    shift_flag = False
     if not ret:
         print("Stream accidently closed")
         break
@@ -91,25 +111,44 @@ while True:
     # TODO: write loading ids from file
     for i in markers:
         tvec, rvec = markers[i]["tvec"], markers[i]["rvec"]
-        img_aruco = cv2.drawFrameAxes(img_aruco, newcameramtx, dist, rvec, tvec,
-                                      MARKER_AXIS_DISPLAY_LENGTH)
+        if i == GROUND_MARKER_ID:
+            img_aruco = cv2.drawFrameAxes(img_aruco, newcameramtx, dist, rvec, tvec,
+                                          MARKER_AXIS_DISPLAY_LENGTH)
+            continue
+        axis_points = np.array([[0, 0, 0], [0, 0, MARKER_AXIS_DISPLAY_LENGTH], [
+                               0, MARKER_AXIS_DISPLAY_LENGTH, 0], [MARKER_AXIS_DISPLAY_LENGTH, 0, 0]])
+        prj_axis = np.array(cv2.projectPoints(
+            axis_points, rvec, tvec, newcameramtx, dist)[0], dtype=int)
+        cv2.line(img_aruco, prj_axis[0, 0], prj_axis[1, 0], (255, 255, 0), 3)
+        cv2.line(img_aruco, prj_axis[0, 0], prj_axis[2, 0], (0, 255, 255), 3)
+        cv2.line(img_aruco, prj_axis[0, 0], prj_axis[3, 0], (255, 0, 255), 3)
     q = cv2.waitKey(1)
     cv2.imshow("estimation", resize_with_aspect_ratio(
         img_aruco, height=DISPLAY_IMG_HEIGHT))
+    if pause_flag:
+        q = cv2.waitKey(0)
+        if q == ord("a"):
+            print("prev frame")
+            camera.set(cv2.CAP_PROP_POS_FRAMES,
+                       camera.get(cv2.CAP_PROP_POS_FRAMES) - 2)
+
+            # camera.set(cv2.CAP_PROP_POS_MSEC, camera.get(
+            #     cv2.CAP_PROP_POS_MSEC) - 2*(1000/camera.get(cv2.CAP_PROP_FPS)))
+            # print(camera.get(cv2.CAP_PROP_POS_FRAMES))
+        elif q == ord("d"):
+            print("next frame")
+        else:
+            # camera.set(cv2.CAP_PROP_POS_MSEC, camera.get(
+            # cv2.CAP_PROP_POS_MSEC) - (1000/camera.get(cv2.CAP_PROP_FPS)))
+            camera.set(cv2.CAP_PROP_POS_FRAMES,
+                       camera.get(cv2.CAP_PROP_POS_FRAMES) - 1)
     if q == 27:
         print("Requested exit")
         break
     elif q == ord(" "):
         pause_flag = not pause_flag
         print("pause" if pause_flag else "play")
-    elif q == ord("a"):
-        print("prev frame")
-        camera.set(cv2.CAP_PROP_POS_FRAMES, int(
-            camera.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
-    elif q == ord("d"):
-        print("next frame")
-        camera.set(cv2.CAP_PROP_POS_FRAMES, int(
-            camera.get(cv2.CAP_PROP_POS_FRAMES)) + 1)
 
 
+camera.release()
 cv2.destroyAllWindows()

@@ -8,12 +8,13 @@ from glob import glob
 
 
 ROOT = "./Calibration/"
-CALIB_FILE_PATH = ROOT + "/camera calibration samples/Nikon (stock lens).json"
-CALIB_IMG_ARRAY_PATH = ROOT + "camera calibration samples/AAZinkevich camera/"
+CALIB_FILE_PATH = ROOT + "/calibration files/s46b 0.8.json"
+CALIB_IMG_ARRAY_PATH = ROOT + \
+    "camera calibration samples/s46b camera 0.8/"
 
 CALIB_ARUCO_DCT = aruco.DICT_4X4_1000
-MARKER_SIZE = 0.048  # units - meters
-MARKER_SEP = 0.006  # units - meters
+MARKER_SIZE = 0.036  # units - meters
+MARKER_SEP = 0.005  # units - meters
 BOARD_SIZE_X = 4
 BOARD_SIZE_Y = 5
 GNERATE_BOARD_MODE = False
@@ -61,7 +62,7 @@ print("Starting calibration, collecting images.")
 arucoParams = aruco.DetectorParameters()
 
 img_list = []
-calib_fnms = glob(CALIB_IMG_ARRAY_PATH + "*.jpg")
+calib_fnms = glob(CALIB_IMG_ARRAY_PATH + "*.png")
 print('Using ...', end='')
 for idx, fn in enumerate(calib_fnms):
     print(idx, '', end='')
@@ -78,7 +79,7 @@ for im in tqdm(img_list):
     img_gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(
         img_gray, aruco_dict, parameters=arucoParams)
-    # cv2.imshow('adsd',img_gray)
+    # cv2.imshow('adsd', resize_with_aspect_ratio(img_gray, height=700))
     # cv2.waitKey(0)
     if first == True:
         corners_list = corners
@@ -94,9 +95,10 @@ counter = np.array(counter)
 print("Calibrating camera .... Please wait...")
 ret, mtx, dist, rvecs, tvecs = aruco.calibrateCameraAruco(
     corners_list, id_list, counter, board, img_gray.shape, None, None)
+print(ret)
 
 print("Camera matrix: \n", mtx,
-      "\n distortion coefficients: \n", dist, "\nEverything is stord in path: '" + CALIB_FILE_PATH + "'")
+      "\n distortion coefficients: \n", dist, "\nEverything is stored in path: '" + CALIB_FILE_PATH + "'")
 data = {'camera_matrix': np.asarray(
     mtx).tolist(), 'dist_coeff': np.asarray(dist).tolist()}
 with open(CALIB_FILE_PATH, "w") as f:

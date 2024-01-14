@@ -1,6 +1,6 @@
 #define STEP_PIN 9
 #define DIR_PIN 8
-#define SPEED_MS 500
+#define SPEED_MS 1000
 
 
 // int a = 0;
