@@ -101,13 +101,13 @@ while True:
     if DEBUG or WRITE_VIDEO:
         img_aruco = img.copy()
     im_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    _, im_th = cv2.threshold(
-        im_gray, 30, 255, cv2.THRESH_BINARY)
-    cv2.imshow("dbg", resize_with_aspect_ratio(
-        im_th, height=DISPLAY_IMG_HEIGHT))
+    # _, im_th = cv2.threshold(
+    #     im_gray, 30, 255, cv2.THRESH_BINARY)
+    # cv2.imshow("dbg", resize_with_aspect_ratio(
+    #     im_th, height=DISPLAY_IMG_HEIGHT))
     # im_norm = cv2.equalizeHist(im_gray)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(
-        im_th, aruco_dict, parameters=arucoParams)
+        im_gray, aruco_dict, parameters=arucoParams)
     if len(corners) == 0:
         pass
     else:
