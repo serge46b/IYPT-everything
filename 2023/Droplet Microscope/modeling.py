@@ -1,6 +1,11 @@
 from dataclasses import dataclass
+import pandas as pd
 import numpy as np
 import cv2
+
+
+ROOT = "./2023/Droplet Microscope/"
+OUT_SV_PATH = ROOT + "modeling results/test result.xlsx"
 
 
 @dataclass
@@ -91,18 +96,20 @@ class ParabolaFunction(Function):
         return (-self.b - np.sqrt(self.b**2 - 4 * self.a*self.c))/(2*self.a)
 
 
-DROPLET_FUNCTION = ParabolaFunction(-1, 2, 3)
+# DROPLET_FUNCTION = ParabolaFunction(-1, 2, 3)
+DROPLET_FUNCTION = ParabolaFunction(-0.296, 1.037, -0.195)
+
 D = (DROPLET_FUNCTION.x1, DROPLET_FUNCTION.x2)
-# print(D)
+print(D)
 # D = (-1, 3)
-H = (0, 10)
+H = (0, 2)
 SHIFT = 1
 N = 1.33
 
-H_LENS = 8
-H_VIEWER = 10
+H_LENS = 1.4
+H_VIEWER = 1.6
 
-IMG_SHAPE = (640, 320, 3)
+IMG_SHAPE = (640, int(640*(D[1]-D[0]+2*SHIFT)/(H[1]-H[0]+2*SHIFT)), 3)
 
 X_RW = D[1]+SHIFT - D[0]+SHIFT
 X_K = IMG_SHAPE[1]/X_RW
@@ -206,39 +213,19 @@ class Object:
         return Point(r_x=self.crd.rx+self.width, r_y=self.crd.ry)
 
 
-# DROPLET_FUNCTION = Function(lambda dct: (
-    # lambda x: dct["a"]*x**2 + dct["b"]*x + dct["c"]), {"a": -1, "b": 2, "c": 3})
-# DROPLET_FUNCTION = ParabolaFunction(-1, 2, 3)
 VIEWER_LINE = LineFunction(0, H_VIEWER)
-OBJECT = Object(Point(r_x=D[0], r_y=H[0]), 1, (0, 0, 255))
+DESK_LINE = LineFunction(0, H[0])
+OBJECT_SHIFT_STEP = 0.03  # in digits after comma
+CALCULATION_PRECISION = 5  # in digits after comma
+OBJECT_WIDTH = 0.03
+OBJECT = Object(Point(r_x=D[0], r_y=H[0]), OBJECT_WIDTH, (0, 0, 255))
 LENSE_CENTER = Point(r_x=(D[1]-D[0]+2*SHIFT)/2+D[0]-SHIFT, r_y=H_LENS)
-# def DROPLET_FUNCTION(x):
-#     A = -1
-#     B = 2
-#     C = 3
-#     return A*x**2 + B*x + C
-
-
-# def VIEWER_FUNCTION(x):
-#     return H_VIEWER
 
 
 COLOR_DROPLET = (255, 125, 0)
 COLOR_DESK = (255, 255, 255)
 COLOR_LENS = (255, 255, 255)
 COLOR_VIEWER = (255, 255, 255)
-
-
-def transfer_crd_real2img(crd: tuple[float, float]) -> tuple[int, int]:
-    x = int((crd[0] - D[0] + SHIFT)/X_K)
-    y = IMG_SHAPE[0] - int((crd[1] - H[0] + SHIFT)/(-Y_K)) - 1
-    return (x, y)
-
-
-def transfer_crd_img2real(crd: tuple[int, int]) -> tuple[float, float]:
-    x = crd[0]*X_K + D[0] - SHIFT
-    # y = crd[1]*X_K + H[0] - SHIFT
-    return (x, 0)
 
 
 def draw_function(img: np.ndarray, function: Function, color: tuple[int, int, int], d: tuple[float, float] = (D[0]-SHIFT, D[1]+SHIFT)) -> None:
@@ -333,23 +320,97 @@ def refract_ray(droplet: ParabolaFunction, line: LineFunction, img=None):
     return refracted_ray
 
 
-# draw_object(img, OBJECT)
-# main_obj_projection = find_obj_projection(OBJECT, img)
-# draw_object(img, main_obj_projection)
-for test_x in range(5001, 15000, 6):
-    img = np.zeros(IMG_SHAPE)
-    draw_function(img, DROPLET_FUNCTION, COLOR_DROPLET, D)
-    draw_function(img, VIEWER_LINE, COLOR_VIEWER)
-    draw_lens(img)
-    cv2.line(img, Point(r_x=D[0]-SHIFT, r_y=H[0]).i_crd,
-             Point(r_x=D[1]+SHIFT, r_y=H[0]).i_crd, COLOR_DESK, 1)
-    ray = generate_line_function_by_pts(
-        Point(test_x/10000, H_VIEWER), LENSE_CENTER)
-    # draw_function(img, ray, (0, 255, 255))
-    refracted_ray = refract_ray(DROPLET_FUNCTION, ray, img)
-    # draw_function(img, refracted_ray, (255, 0, 255))
-    cv2.imshow("function", img)
-    q = cv2.waitKey(1)
+def find_parabola_tangent_by_point(parabola: ParabolaFunction, point: Point) -> [LineFunction, LineFunction]:
+    a, b, c = parabola.params.values()
+    kx, ky = point.r_crd
+    x1 = (a*kx + np.sqrt(a**2*kx**2 - a*(ky - c - b*kx)))/a
+    x2 = (a*kx - np.sqrt(a**2*kx**2 - a*(ky - c - b*kx)))/a
+    k1 = parabola.dv_value(x1)
+    m1 = parabola.fn_value(x1) - k1*x1
+    k2 = parabola.dv_value(x2)
+    m2 = parabola.fn_value(x2) - k2*x2
+    return LineFunction(k1, m1), LineFunction(k2, m2)
+
+
+# Visual preparation
+img = np.zeros(IMG_SHAPE)
+draw_function(img, DROPLET_FUNCTION, COLOR_DROPLET, D)
+draw_function(img, VIEWER_LINE, COLOR_VIEWER)
+draw_lens(img)
+draw_function(img, DESK_LINE, COLOR_DESK)
+# -----------Parabola variant---------
+# Get edge points
+tg1, tg2 = find_parabola_tangent_by_point(
+    DROPLET_FUNCTION, LENSE_CENTER)
+# draw_function(img, tg1, (255, 255, 255))
+# draw_function(img, tg2, (255, 255, 255))
+edge1_point = find_intersection_of_2_lines(tg1, VIEWER_LINE)
+edge2_point = find_intersection_of_2_lines(tg2, VIEWER_LINE)
+# Get desk edge points
+ray1 = generate_line_function_by_pts(Point(
+    r_x=edge1_point.rx-1/10**CALCULATION_PRECISION, r_y=edge1_point.ry), LENSE_CENTER)
+refracted_ray1 = refract_ray(DROPLET_FUNCTION, ray1)
+# draw_function(img, refracted_ray1, (255, 0, 255))
+desk_edge1_point = find_intersection_of_2_lines(refracted_ray1, DESK_LINE)
+ray2 = generate_line_function_by_pts(Point(
+    r_x=edge2_point.rx+1/10**CALCULATION_PRECISION, r_y=edge2_point.ry), LENSE_CENTER)
+refracted_ray2 = refract_ray(DROPLET_FUNCTION, ray2)
+# draw_function(img, refracted_ray2, (255, 0, 255))
+desk_edge2_point = find_intersection_of_2_lines(refracted_ray2, DESK_LINE)
+print("processing...")
+out_df = pd.DataFrame()
+OBJECT.crd.rx = desk_edge1_point.rx
+q = 0
+while OBJECT.crd_end.rx < desk_edge2_point.rx:
+    print(
+        f"progress: {(OBJECT.crd_end.rx-D[0]) / (D[1]-D[0]):,.2f}%", end="\r")
+    projected_obj_xs = [None, None]
+    dbg_img = img.copy()
+    draw_object(dbg_img, OBJECT)
+    for crd_idx, searching_x in enumerate([OBJECT.crd.rx, OBJECT.crd_end.rx]):
+        x = (edge1_point.rx + edge2_point.rx)/2 + 0.00001
+        prev_x = edge1_point.rx
+        while True:
+            dbg_img2 = dbg_img.copy()
+            ray = generate_line_function_by_pts(
+                Point(r_x=x, r_y=H_VIEWER), LENSE_CENTER)
+            dpt_intersect_point = find_intersection_of_parabola_line(
+                DROPLET_FUNCTION, ray)
+            refracted_ray = refract_ray(DROPLET_FUNCTION, ray)
+            ray_intersection_point = find_intersection_of_2_lines(
+                refracted_ray, DESK_LINE)
+            diff = round(searching_x, CALCULATION_PRECISION) - \
+                round(ray_intersection_point.rx, CALCULATION_PRECISION)
+            if diff == 0:
+                break
+            elif diff > 0:
+                x, prev_x = x - abs(prev_x-x)/2, x
+            elif diff < 0:
+                x, prev_x = x + abs(prev_x-x)/2, x
+            draw_function(dbg_img2, ray, (0, 255, 255), (min(
+                x, dpt_intersect_point.rx), max(x, dpt_intersect_point.rx)))
+            draw_function(dbg_img2, refracted_ray, (0, 255, 255), (min(dpt_intersect_point.rx,
+                                                                       ray_intersection_point.rx), max(dpt_intersect_point.rx, ray_intersection_point.rx)))
+            cv2.imshow("debug", dbg_img2)
+            q = cv2.waitKey(30)
+            if q == 27:
+                break
+        if q == 27:
+            break
+        projected_obj_xs[crd_idx] = x
     if q == 27:
+        print()
+        print("Aborted")
         break
+    prj_obj = find_obj_projection(OBJECT)
+    prj_obj_no_dpt_size = abs(prj_obj.crd.rx-prj_obj.crd_end.rx)
+    prj_obj_with_dpt_size = abs(projected_obj_xs[0] - projected_obj_xs[1])
+    out_df = pd.concat([out_df, pd.DataFrame(
+        {"x": OBJECT.crd.rx, "magnification": prj_obj_with_dpt_size/prj_obj_no_dpt_size}, index=[0])])
+    OBJECT.crd.rx += OBJECT_SHIFT_STEP
+print()
+if q != 27:
+    print("Writing...")
+    with pd.ExcelWriter(OUT_SV_PATH) as writer:
+        out_df.to_excel(writer, "data")
 cv2.destroyAllWindows()
