@@ -5,9 +5,9 @@ import numpy as np
 from cv2 import aruco
 
 
-# CONFIG_FILE_PATH = "./2023/Walker/ArUco tracing config.json"
+CONFIG_FILE_PATH = "./2023/Walker/ArUco tracing config.json"
 # CONFIG_FILE_PATH = "./Tag tracing/camera dbg cfg.json"
-CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/s46b ArUco general tracing cfg.json"
+# CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/s46b ArUco general tracing cfg.json"
 
 
 if not CONFIG_FILE_PATH:
@@ -29,7 +29,9 @@ OUT_SV_PATH = ROOT + loaded_cfg["tracing_file_dir_rpath"] + \
     (str(VIDEO_SOURCE) if type(VIDEO_SOURCE) == int else VIDEO_SOURCE[VIDEO_SOURCE.rfind(
         '/'):VIDEO_SOURCE.rfind('.')]) + ".csv"
 
-ARUCO_DICTIONARY = aruco.DICT_4X4_1000
+DCTS = {"4X4_1000": aruco.DICT_4X4_1000, "5X5_1000": aruco.DICT_5X5_1000}
+ARUCO_DICTIONARY = DCTS[loaded_cfg["root_marker_dict"]]
+ARUCO_GROUND_DICTIONARY = DCTS[loaded_cfg["tracing_markers_dict"]]
 GROUND_MARKER_SIZE = loaded_cfg["root_marker_sz"]
 GROUND_MARKER_ID = loaded_cfg["root_marker_id"]
 MARKER_SIZE = loaded_cfg["tracing_marker_sz"]  # units - meters
@@ -67,7 +69,8 @@ def resize_with_aspect_ratio(image, width=None, height=None, inter=cv2.INTER_ARE
     return cv2.resize(image, dim, interpolation=inter)
 
 
-aruco_dict = aruco.getPredefinedDictionary(ARUCO_DICTIONARY)
+tr_aruco_dict = aruco.getPredefinedDictionary(ARUCO_DICTIONARY)
+gd_aruco_dict = aruco.getPredefinedDictionary(ARUCO_GROUND_DICTIONARY)
 arucoParams = aruco.DetectorParameters()
 camera = cv2.VideoCapture(VIDEO_SOURCE)
 # camera.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_RES_WIDTH)
@@ -106,35 +109,46 @@ while True:
     # cv2.imshow("dbg", resize_with_aspect_ratio(
     #     im_th, height=DISPLAY_IMG_HEIGHT))
     # im_norm = cv2.equalizeHist(im_gray)
-    corners, ids, rejectedImgPoints = aruco.detectMarkers(
-        im_gray, aruco_dict, parameters=arucoParams)
-    if len(corners) == 0:
+    gd_corners, gd_ids, rejectedImgPoints = aruco.detectMarkers(
+        im_gray, gd_aruco_dict, parameters=arucoParams)
+    if len(gd_corners) == 0:
         pass
     else:
         if DEBUG or WRITE_VIDEO:
             img_aruco = aruco.drawDetectedMarkers(
-                img_aruco, corners, ids, (0, 255, 0))
-        for i in range(len(ids)):
-            if ids[i] not in TRACING_MARKERS_IDS and ids[i] != GROUND_MARKER_ID:
+                img_aruco, gd_corners, gd_ids, (255, 255, 255))
+        for i in range(len(gd_ids)):
+            if gd_ids[i] != GROUND_MARKER_ID:
                 continue
-            m_size = MARKER_SIZE
-            if ids[i] == GROUND_MARKER_ID:
-                m_size = GROUND_MARKER_SIZE
+            _, rvec, tvec = cv2.solvePnP(np.array([[-GROUND_MARKER_SIZE/2, GROUND_MARKER_SIZE/2, 0], [GROUND_MARKER_SIZE/2, GROUND_MARKER_SIZE/2, 0], [GROUND_MARKER_SIZE/2, -GROUND_MARKER_SIZE/2, 0],
+                                                   [-GROUND_MARKER_SIZE/2, -GROUND_MARKER_SIZE/2, 0]]), gd_corners[i][0], mtx, dist, flags=cv2.SOLVEPNP_IPPE_SQUARE)
+            res_file.write(
+                f"{int(camera.get(cv2.CAP_PROP_POS_FRAMES))}, {gd_ids[i, 0]}, {tvec[0, 0]}, {tvec[1, 0]}, {tvec[2, 0]}, {rvec[0, 0]}, {rvec[1, 0]}, {rvec[2, 0]}\n")
+            img_aruco = cv2.drawFrameAxes(img_aruco, mtx, dist, rvec, tvec,
+                                          MARKER_AXIS_DISPLAY_LENGTH)
+            break
+    tr_corners, tr_ids, rejectedImgPoints = aruco.detectMarkers(
+        im_gray, tr_aruco_dict, parameters=arucoParams)
+    if len(tr_corners) == 0:
+        pass
+    else:
+        if DEBUG or WRITE_VIDEO:
+            img_aruco = aruco.drawDetectedMarkers(
+                img_aruco, tr_corners, tr_ids, (0, 255, 0))
+        for i in range(len(tr_ids)):
+            if tr_ids[i] not in TRACING_MARKERS_IDS:
+                continue
             # rvec, tvec, markerPoints = aruco.estimatePoseSingleMarkers(corners[i], m_size, mtx,
             #                                                            dist)
             # print(corners[i][0])
-            _, rvec, tvec = cv2.solvePnP(np.array([[-m_size/2, m_size/2, 0], [m_size/2, m_size/2, 0], [m_size/2, -m_size/2, 0],
-                                         [-m_size/2, -m_size/2, 0]]), corners[i][0], mtx, dist, flags=cv2.SOLVEPNP_IPPE_SQUARE)
+            _, rvec, tvec = cv2.solvePnP(np.array([[-MARKER_SIZE/2, MARKER_SIZE/2, 0], [MARKER_SIZE/2, MARKER_SIZE/2, 0], [MARKER_SIZE/2, -MARKER_SIZE/2, 0],
+                                         [-MARKER_SIZE/2, -MARKER_SIZE/2, 0]]), tr_corners[i][0], mtx, dist, flags=cv2.SOLVEPNP_IPPE_SQUARE)
             # print(rvec, tvec)
             # res_file.write(
             #     f"{int(camera.get(cv2.CAP_PROP_POS_FRAMES))}, {ids[i, 0]}, {tvec[0, 0, 0]}, {tvec[0, 0, 1]}, {tvec[0, 0, 2]}, {rvec[0, 0, 0]}, {rvec[0, 0, 1]}, {rvec[0, 0, 2]}\n")
             res_file.write(
-                f"{int(camera.get(cv2.CAP_PROP_POS_FRAMES))}, {ids[i, 0]}, {tvec[0, 0]}, {tvec[1, 0]}, {tvec[2, 0]}, {rvec[0, 0]}, {rvec[1, 0]}, {rvec[2, 0]}\n")
+                f"{int(camera.get(cv2.CAP_PROP_POS_FRAMES))}, {tr_ids[i, 0]}, {tvec[0, 0]}, {tvec[1, 0]}, {tvec[2, 0]}, {rvec[0, 0]}, {rvec[1, 0]}, {rvec[2, 0]}\n")
             if DEBUG or WRITE_VIDEO:
-                if ids[i] == GROUND_MARKER_ID:
-                    img_aruco = cv2.drawFrameAxes(img_aruco, mtx, dist, rvec, tvec,
-                                                  MARKER_AXIS_DISPLAY_LENGTH)
-                    continue
                 axis_points = np.array([[0, 0, 0], [0, 0, MARKER_AXIS_DISPLAY_LENGTH], [
                     0, MARKER_AXIS_DISPLAY_LENGTH, 0], [MARKER_AXIS_DISPLAY_LENGTH, 0, 0]])
                 prj_axis = np.array(cv2.projectPoints(
