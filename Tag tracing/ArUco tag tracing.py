@@ -30,8 +30,8 @@ OUT_SV_PATH = ROOT + loaded_cfg["tracing_file_dir_rpath"] + \
         '/'):VIDEO_SOURCE.rfind('.')]) + ".csv"
 
 DCTS = {"4X4_1000": aruco.DICT_4X4_1000, "5X5_1000": aruco.DICT_5X5_1000}
-ARUCO_DICTIONARY = DCTS[loaded_cfg["root_marker_dict"]]
-ARUCO_GROUND_DICTIONARY = DCTS[loaded_cfg["tracing_markers_dict"]]
+ARUCO_DICTIONARY = DCTS[loaded_cfg["tracing_marker_dict"]]
+ARUCO_GROUND_DICTIONARY = DCTS[loaded_cfg["root_marker_dict"]]
 GROUND_MARKER_SIZE = loaded_cfg["root_marker_sz"]
 GROUND_MARKER_ID = loaded_cfg["root_marker_id"]
 MARKER_SIZE = loaded_cfg["tracing_marker_sz"]  # units - meters

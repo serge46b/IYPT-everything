@@ -4,8 +4,8 @@ import json
 import numpy as np
 import pandas as pd
 
-# CONFIG_FILE_PATH = "./2023/Walker/ArUco tracing config.json"
-CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/s46b ArUco general tracing cfg.json"
+CONFIG_FILE_PATH = "./2023/Walker/ArUco tracing config.json"
+# CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/s46b ArUco general tracing cfg.json"
 
 
 if not CONFIG_FILE_PATH:

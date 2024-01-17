@@ -6,8 +6,9 @@ import numpy as np
 import cv2
 
 ROOT = "./2023/Walker/"
-IN_FILE_PATH = ROOT + "ArUco tag exp/results/results processed/d3 a13 test processed.xlsx"
-MARKER_PAIR_IDS = (1, 3)
+IN_FILE_PATH = ROOT + \
+    "ArUco tag exp/results/results processed/d4 a1 test rotated processed.xlsx"
+MARKER_PAIR_IDS = (8, 14)
 
 
 @dataclass
@@ -77,14 +78,15 @@ def find_angle(world_vector1: np3Dvec, marker1: Marker, world_vector2: np3Dvec, 
 
 in_df = pd.read_excel(IN_FILE_PATH)
 for index in in_df.index:
-    Y_vec = np3Dvec([0, 1, 0])
+    Y_vec1 = np3Dvec([0, 0, 1])
     m1_id = MARKER_PAIR_IDS[0]
     m1 = Marker(m1_id, np3Dvec([in_df[f"tx{m1_id}"][index], in_df[f"ty{m1_id}"][index], in_df[f"tz{m1_id}"][index]]), np3Drotation([
                 in_df[f"rx{m1_id}"][index], in_df[f"ry{m1_id}"][index], in_df[f"rz{m1_id}"][index]]))
     m2_id = MARKER_PAIR_IDS[1]
+    Y_vec2 = np3Dvec([1, 0, 0])
     m2 = Marker(m2_id, np3Dvec([in_df[f"tx{m2_id}"][index], in_df[f"ty{m2_id}"][index], in_df[f"tz{m2_id}"][index]]), np3Drotation([
                 in_df[f"rx{m2_id}"][index], in_df[f"ry{m2_id}"][index], in_df[f"rz{m2_id}"][index]]))
-    angle = find_angle(Y_vec, m1, Y_vec, m2)
+    angle = find_angle(Y_vec1, m1, Y_vec2, m2)
     if not np.isnan(angle):
         print(angle)
     else:
