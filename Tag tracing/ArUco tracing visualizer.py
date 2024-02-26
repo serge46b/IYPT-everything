@@ -5,9 +5,9 @@ import numpy as np
 from cv2 import aruco
 
 
-# CONFIG_FILE_PATH = "./2023/Walker/ArUco tracing config.json"
+CONFIG_FILE_PATH = "./2023/Walker/ArUco tracing config.json"
 # CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/Nk single wheel.json"
-CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/s46b ArUco general tracing cfg.json"
+# CONFIG_FILE_PATH = "./2023/Magnetic gearbox/exp configs/s46b ArUco general tracing cfg.json"
 
 
 if not CONFIG_FILE_PATH:
@@ -78,7 +78,6 @@ mtx = np.array(mtx)
 dist = np.array(dist)
 h, w = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT)), int(
     camera.get(cv2.CAP_PROP_FRAME_WIDTH))
-newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
 
 trvec_file = open(TRACED_DATA_IN_PATH, "r")
 _ = trvec_file.readline()
@@ -112,13 +111,13 @@ while True:
     for i in markers:
         tvec, rvec = markers[i]["tvec"], markers[i]["rvec"]
         if i == GROUND_MARKER_ID:
-            img_aruco = cv2.drawFrameAxes(img_aruco, newcameramtx, dist, rvec, tvec,
+            img_aruco = cv2.drawFrameAxes(img_aruco, mtx, dist, rvec, tvec,
                                           MARKER_AXIS_DISPLAY_LENGTH)
             continue
         axis_points = np.array([[0, 0, 0], [0, 0, MARKER_AXIS_DISPLAY_LENGTH], [
                                0, MARKER_AXIS_DISPLAY_LENGTH, 0], [MARKER_AXIS_DISPLAY_LENGTH, 0, 0]])
         prj_axis = np.array(cv2.projectPoints(
-            axis_points, rvec, tvec, newcameramtx, dist)[0], dtype=int)
+            axis_points, rvec, tvec, mtx, dist)[0], dtype=int)
         cv2.line(img_aruco, prj_axis[0, 0], prj_axis[1, 0], (255, 255, 0), 3)
         cv2.line(img_aruco, prj_axis[0, 0], prj_axis[2, 0], (0, 255, 255), 3)
         cv2.line(img_aruco, prj_axis[0, 0], prj_axis[3, 0], (255, 0, 255), 3)

@@ -5,6 +5,8 @@
 *.jpg
 *.png
 *.heic
+*.CR2
+*.xmp
 
 *.txt
 *.xlsx

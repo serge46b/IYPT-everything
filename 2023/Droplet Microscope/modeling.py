@@ -6,8 +6,8 @@ import cv2
 
 ROOT = "./2023/Droplet Microscope/"
 OUT_SV_PATH = ROOT + \
-    "modeling results/test results.xlsx"
-VISUALISE = True
+    "modeling results/big dp modeling.xlsx"
+VISUALISE = False
 
 
 @dataclass
@@ -141,17 +141,21 @@ class ElipseFunction(Function):
 
 # DROPLET_FUNCTION = ParabolaFunction(-1, 2, 3)
 # DROPLET_FUNCTION = ParabolaFunction(-0.296, 1.037, -0.195)
-DROPLET_FUNCTION = ElipseFunction(7.5, 3.75)
+DROPLET_FUNCTION = ElipseFunction(21, 3.4)
 
 D = (DROPLET_FUNCTION.x1, DROPLET_FUNCTION.x2)
 # print(D)
 # D = (-1, 3)
-H = (0, 10)
+# H = (0, 10)
+H = (0, 1750)
 SHIFT = 1
 N = 1.33
 
-H_LENS = 9
-H_VIEWER = 10
+# H_LENS = 9
+# H_VIEWER = 10
+H_LENS = 212
+# H_VIEWER = 320
+H_VIEWER = 1750
 
 IMG_SHAPE = (640, int(640*(D[1]-D[0]+2*SHIFT)/(H[1]-H[0]+2*SHIFT)), 3)
 
@@ -259,9 +263,11 @@ class Object:
 
 VIEWER_LINE = LineFunction(0, H_VIEWER)
 DESK_LINE = LineFunction(0, H[0])
-OBJECT_SHIFT_STEP = 0.03  # in digits after comma
+OBJECT_SHIFT_STEP = 0.01  # in digits after comma
+# OBJECT_SHIFT_STEP = 0.6  # in digits after comma
 CALCULATION_PRECISION = 5  # in digits after comma
-OBJECT_WIDTH = 0.03
+OBJECT_WIDTH = 0.01
+# OBJECT_WIDTH = 0.35
 OBJECT = Object(Point(r_x=D[0], r_y=H[0]), OBJECT_WIDTH, (0, 0, 255))
 LENSE_CENTER = Point(r_x=(D[1]-D[0]+2*SHIFT)/2+D[0]-SHIFT, r_y=H_LENS)
 

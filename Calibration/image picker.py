@@ -5,17 +5,18 @@ import numpy as np
 from cv2 import aruco
 
 
-ROOT = "./Calibration/camera calibration samples/s46b camera 0.8/"
-VIDEO_SOURCE = ROOT + "calibration.mp4"
-OUT_SV_PATH = ROOT
+ROOT = "./Calibration/camera calibration samples/AAZ mcamera/"
+VIDEO_SOURCE = ROOT + "calibration.MOV"
+OUT_SV_PATH = ROOT + "/images/"
 
 ARUCO_DICTIONARY = aruco.DICT_4X4_1000
 
 DISPLAY_IMG_HEIGHT = 500  # units - pixels
+SHOW_PREV_MARKER_POSITIONS = True
 
-AUTO_MODE = False
+AUTO_MODE = True
 MARKERS_ON_BOARD = 4*5
-FRAME_SKIP = 10
+FRAME_SKIP = 100
 
 # CAMERA_RES_WIDTH = 1280
 # CAMERA_RES_HEIGHT = 720
@@ -47,6 +48,11 @@ camera = cv2.VideoCapture(VIDEO_SOURCE)
 print("processing...")
 pause_flag = False
 l_w_frame = 1
+if not AUTO_MODE or SHOW_PREV_MARKER_POSITIONS:
+    saved_frames = []
+    sh_svd_idx = -1
+if SHOW_PREV_MARKER_POSITIONS:
+    saved_positios = []
 while True:
     ret, img = camera.read()
     if not ret:
@@ -71,6 +77,18 @@ while True:
         else:
             l_w_frame = int(camera.get(cv2.CAP_PROP_POS_FRAMES))
     q = 0
+    if SHOW_PREV_MARKER_POSITIONS and len(saved_frames) > 0:
+        markers_positions_img = np.zeros_like(img_aruco)
+        for idx in range(sh_svd_idx+1):
+            board_pos = saved_positios[idx]
+            for corner in board_pos[0]:
+                cv2.polylines(markers_positions_img, corner.astype(np.int32), True, (int(
+                    255*(idx)/(sh_svd_idx+1)), 0, int(255*((sh_svd_idx+1-idx)/(sh_svd_idx+1)))), 2)
+        for corner in corners:
+            cv2.polylines(markers_positions_img, corner.astype(
+                np.int32), True, (0, 255, 0), 2)
+        cv2.imshow("markers positions", resize_with_aspect_ratio(
+            markers_positions_img, height=DISPLAY_IMG_HEIGHT))
     if not AUTO_MODE:
         cv2.imshow("markers", resize_with_aspect_ratio(
             img_aruco, height=DISPLAY_IMG_HEIGHT))
@@ -86,6 +104,18 @@ while True:
             # print(camera.get(cv2.CAP_PROP_POS_FRAMES))
         elif q == ord("d"):
             print("next frame")
+        elif q == ord("q"):
+            sh_svd_idx -= 1
+            if sh_svd_idx < 0:
+                sh_svd_idx = 0
+            camera.set(cv2.CAP_PROP_POS_FRAMES,
+                       saved_frames[sh_svd_idx])
+        elif q == ord("e"):
+            sh_svd_idx += 1
+            if sh_svd_idx >= len(saved_frames):
+                sh_svd_idx = len(saved_frames) - 1
+            camera.set(cv2.CAP_PROP_POS_FRAMES,
+                       saved_frames[sh_svd_idx])
         else:
             # camera.set(cv2.CAP_PROP_POS_MSEC, camera.get(
             # cv2.CAP_PROP_POS_MSEC) - (1000/camera.get(cv2.CAP_PROP_FPS)))
@@ -95,6 +125,9 @@ while True:
             cv2.imwrite(
                 f"{OUT_SV_PATH}frame {int(camera.get(cv2.CAP_PROP_POS_FRAMES))}.png", img)
             print(f"saved frame {int(camera.get(cv2.CAP_PROP_POS_FRAMES))}")
+            saved_frames.append(int(camera.get(cv2.CAP_PROP_POS_FRAMES)))
+            saved_positios.append((corners, ids))
+            sh_svd_idx = len(saved_frames)-1
     if q == 27:
         print("Requested exit")
         break
